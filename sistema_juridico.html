@@ -244,9 +244,6 @@ ${resultadoEtapa2}`
 
                 // Backend API call using Appwrite SDK
                 async function callBackendAPI(prompt) {
-                    // DEBUG: Show configuration
-                    alert(`DEBUG CONFIG:\nProject: ${client.config.project}\nFunction: ${FUNCTION_ID}\nEndpoint: ${client.config.endpoint}`);
-
                     try {
                         const execution = await functions.createExecution(
                             FUNCTION_ID,
