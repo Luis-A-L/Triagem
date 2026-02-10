@@ -237,25 +237,33 @@ ${resultadoEtapa2}`
         }
 
         // Backend API call using Appwrite SDK
+        // Backend API call using Render (Node.js)
         async function callBackendAPI(prompt) {
             try {
-                const execution = await functions.createExecution(
-                    FUNCTION_ID,
-                    JSON.stringify({ prompt: prompt }),
-                    false // async: false (wait for response)
-                );
+                // URL do seu backend no Render
+                const API_URL = 'https://triagem-n0yr.onrender.com/api/gemini';
 
-                console.log("🔍 DEBUG Appwrite Execution:", execution); // LOG PARA DEBUG
+                console.log("⏳ Enviando requisição para:", API_URL);
 
-                if (execution.status !== 'completed') {
-                    throw new Error(`Status: ${execution.status} | Erro: ${execution.responseBody || 'Sem detalhes'}`);
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
                 }
 
-                const data = JSON.parse(execution.responseBody);
+                const data = await response.json();
                 return data.result;
+
             } catch (error) {
-                console.error('Appwrite Error:', error);
-                throw new Error(error.message || 'Erro ao conectar com o backend');
+                console.error('API Error:', error);
+                throw new Error(error.message || 'Erro ao conectar com o servidor de inteligência artificial.');
             }
         }
 
