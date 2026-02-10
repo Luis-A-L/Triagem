@@ -9,16 +9,11 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Gemini API endpoint
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+// OpenAI API config
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
-// Health check
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'API Proxy is running' });
-});
-
-// Proxy endpoint for Gemini API
+// Proxy endpoint for OpenAI API
 app.post('/api/gemini', async (req, res) => {
     try {
         const { prompt } = req.body;
@@ -27,45 +22,48 @@ app.post('/api/gemini', async (req, res) => {
             return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        if (!GEMINI_API_KEY) {
+        if (!OPENAI_API_KEY) {
+            console.error('OPENAI_API_KEY not found in .env');
             return res.status(500).json({ error: 'API key not configured on server' });
         }
 
-        // Call Gemini API
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        console.log('Calling OpenAI API...');
+
+        const payload = {
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: "Você é um assistente jurídico útil e preciso." },
+                { role: "user", content: prompt }
+            ],
+            temperature: 0.7
+        };
+
+        // Call OpenAI API
+        const response = await fetch(OPENAI_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
             },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.2,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 65536,
-                }
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            const errorData = await response.json();
+            console.error('OpenAI Error:', errorData);
             return res.status(response.status).json({
-                error: error.error?.message || 'Error calling Gemini API'
+                error: errorData.error?.message || 'Error calling OpenAI API'
             });
         }
 
         const data = await response.json();
-        const text = data.candidates[0].content.parts[0].text;
+        const completion = data.choices[0].message.content;
 
-        res.json({ result: text });
+        console.log('OpenAI Success:', completion.substring(0, 50) + '...');
+        res.json({ result: completion }); // Maintain 'result' format for frontend compatibility
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Server Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
