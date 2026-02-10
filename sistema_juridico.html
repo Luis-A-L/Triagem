@@ -68,29 +68,7 @@
         const BACKEND_API_URL = 'https://cloud.appwrite.io/v1/functions/function-698b6e03002d7a17a88e/executions';
         const APPWRITE_PROJECT_ID = 'nyc-698b6ce9002d1d428be6';
 
-        // Function to call Appwrite backend
-        async function callBackendAPI(prompt) {
-            const response = await fetch(BACKEND_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Appwrite-Project': APPWRITE_PROJECT_ID
-                },
-                body: JSON.stringify({
-                    prompt: prompt,
-                    async: false
-                })
-            });
 
-            if (!response.ok) {
-                throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            // Appwrite returns the response in data.response or data.responseBody
-            return data.response || data.responseBody || data.result || JSON.stringify(data);
-        }
 
         // Prompts for each stage
         const PROMPTS = {
