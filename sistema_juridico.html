@@ -85,19 +85,13 @@
         // ...
 
         // Backend API call using Appwrite SDK
-        async function callBackendAPI(prompt) {
-            try {
-                const execution = await functions.createExecution(
-                    FUNCTION_ID,
-                    JSON.stringify({ prompt: prompt }),
-                    false // async: false (wait for response)
-                );
 
 
 
-                // Prompts for each stage
-                const PROMPTS = {
-                    etapa1: (textoRecurso) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 1 conforme as instruções abaixo:
+
+        // Prompts for each stage
+        const PROMPTS = {
+            etapa1: (textoRecurso) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 1 conforme as instruções abaixo:
 
 REGRAS CRÍTICAS:
 - Fonte exclusiva: use apenas o documento fornecido
@@ -137,7 +131,7 @@ Pediu a atribuição de efeito suspensivo? Sim/Não.
 DOCUMENTO DO RECURSO:
 ${textoRecurso}`,
 
-                    etapa2: (textoAcordao, resultadoEtapa1) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 2 conforme as instruções abaixo:
+            etapa2: (textoAcordao, resultadoEtapa1) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 2 conforme as instruções abaixo:
 
 REGRAS CRÍTICAS:
 - Fonte exclusiva: use apenas o acórdão fornecido
@@ -176,7 +170,7 @@ ${textoAcordao}
 CONTEXTO DA ETAPA 1 (apenas para referência):
 ${resultadoEtapa1}`,
 
-                    etapa3: (resultadoEtapa1, resultadoEtapa2) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 3 conforme as instruções abaixo:
+            etapa3: (resultadoEtapa1, resultadoEtapa2) => `Você é um especialista jurídico em Direito Processual Civil brasileiro. Execute a ETAPA 3 conforme as instruções abaixo:
 
 REGRAS CRÍTICAS:
 - Use SOMENTE o que foi armazenado nas Etapas 1 e 2
@@ -218,522 +212,522 @@ ${resultadoEtapa1}
 
 RESULTADO DA ETAPA 2:
 ${resultadoEtapa2}`
-                };
+        };
 
-                // File extraction functions
-                async function extractTextFromPDF(file) {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                    let fullText = '';
+        // File extraction functions
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
 
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const textContent = await page.getTextContent();
-                        const pageText = textContent.items.map(item => item.str).join(' ');
-                        fullText += pageText + '\n';
-                    }
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
 
-                    return fullText;
+            return fullText;
+        }
+
+        async function extractTextFromDOCX(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({ arrayBuffer });
+            return result.value;
+        }
+
+        // Backend API call using Appwrite SDK
+        async function callBackendAPI(prompt) {
+            try {
+                const execution = await functions.createExecution(
+                    FUNCTION_ID,
+                    JSON.stringify({ prompt: prompt }),
+                    false // async: false (wait for response)
+                );
+
+                if (execution.status !== 'completed') {
+                    throw new Error(execution.responseBody || 'Erro na execução da função');
                 }
 
-                async function extractTextFromDOCX(file) {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const result = await mammoth.extractRawText({ arrayBuffer });
-                    return result.value;
-                }
+                const data = JSON.parse(execution.responseBody);
+                return data.result;
+            } catch (error) {
+                console.error('Appwrite Error:', error);
+                throw new Error(error.message || 'Erro ao conectar com o backend');
+            }
+        }
 
-                // Backend API call using Appwrite SDK
-                async function callBackendAPI(prompt) {
-                    try {
-                        const execution = await functions.createExecution(
-                            FUNCTION_ID,
-                            JSON.stringify({ prompt: prompt }),
-                            false // async: false (wait for response)
-                        );
+        // Download function
+        function downloadAsText(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
 
-                        if (execution.status !== 'completed') {
-                            throw new Error(execution.responseBody || 'Erro na execução da função');
-                        }
+        // Components
+        function ProgressBar({ currentStage }) {
+            const stages = [
+                { number: 1, label: 'Etapa 1' },
+                { number: 2, label: 'Etapa 2' },
+                { number: 3, label: 'Etapa 3' }
+            ];
 
-                        const data = JSON.parse(execution.responseBody);
-                        return data.result;
-                    } catch (error) {
-                        console.error('Appwrite Error:', error);
-                        throw new Error(error.message || 'Erro ao conectar com o backend');
-                    }
-                }
-
-                // Download function
-                function downloadAsText(content, filename) {
-                    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                }
-
-                // Components
-                function ProgressBar({ currentStage }) {
-                    const stages = [
-                        { number: 1, label: 'Etapa 1' },
-                        { number: 2, label: 'Etapa 2' },
-                        { number: 3, label: 'Etapa 3' }
-                    ];
-
-                    return (
-                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                            <div className="flex justify-between items-center">
-                                {stages.map((stage, index) => (
-                                    <React.Fragment key={stage.number}>
-                                        <div className="flex flex-col items-center flex-1">
-                                            <div className={`
+            return (
+                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div className="flex justify-between items-center">
+                        {stages.map((stage, index) => (
+                            <React.Fragment key={stage.number}>
+                                <div className="flex flex-col items-center flex-1">
+                                    <div className={`
                                         w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg
                                         stage-indicator
                                         ${currentStage > stage.number ? 'stage-complete' :
-                                                    currentStage === stage.number ? 'stage-active' : 'stage-inactive'}
+                                            currentStage === stage.number ? 'stage-active' : 'stage-inactive'}
                                     `}>
-                                                {currentStage > stage.number ? '✓' : stage.number}
-                                            </div>
-                                            <span className="text-sm font-medium mt-2 text-gray-700">{stage.label}</span>
-                                        </div>
-                                        {index < stages.length - 1 && (
-                                            <div className={`flex-1 h-1 mx-2 ${currentStage > stage.number ? 'bg-green-600' : 'bg-gray-300'}`} />
-                                        )}
-                                    </React.Fragment>
-                                ))}
-                            </div>
-                        </div>
-                    );
+                                        {currentStage > stage.number ? '✓' : stage.number}
+                                    </div>
+                                    <span className="text-sm font-medium mt-2 text-gray-700">{stage.label}</span>
+                                </div>
+                                {index < stages.length - 1 && (
+                                    <div className={`flex-1 h-1 mx-2 ${currentStage > stage.number ? 'bg-green-600' : 'bg-gray-300'}`} />
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function FileUploader({ label, icon, onFileSelect, fileInfo, tipo, onRemove }) {
+            const [dragActive, setDragActive] = useState(false);
+
+            const handleDrag = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.type === "dragenter" || e.type === "dragover") {
+                    setDragActive(true);
+                } else if (e.type === "dragleave") {
+                    setDragActive(false);
                 }
+            };
 
-                function FileUploader({ label, icon, onFileSelect, fileInfo, tipo, onRemove }) {
-                    const [dragActive, setDragActive] = useState(false);
+            const handleDrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDragActive(false);
 
-                    const handleDrag = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (e.type === "dragenter" || e.type === "dragover") {
-                            setDragActive(true);
-                        } else if (e.type === "dragleave") {
-                            setDragActive(false);
-                        }
-                    };
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    onFileSelect(e.dataTransfer.files[0], tipo);
+                }
+            };
 
-                    const handleDrop = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragActive(false);
+            const handleChange = (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    onFileSelect(e.target.files[0], tipo);
+                }
+            };
 
-                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                            onFileSelect(e.dataTransfer.files[0], tipo);
-                        }
-                    };
+            const handleRemove = () => {
+                if (confirm('Deseja remover este documento?')) {
+                    onRemove(tipo);
+                }
+            };
 
-                    const handleChange = (e) => {
-                        if (e.target.files && e.target.files[0]) {
-                            onFileSelect(e.target.files[0], tipo);
-                        }
-                    };
-
-                    const handleRemove = () => {
-                        if (confirm('Deseja remover este documento?')) {
-                            onRemove(tipo);
-                        }
-                    };
-
-                    return (
-                        <div className="flex-1">
-                            <div
-                                className={`
+            return (
+                <div className="flex-1">
+                    <div
+                        className={`
                             bg-white rounded-lg shadow-md p-6 border-2 border-dashed transition
                             ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
                             ${fileInfo?.loading ? 'opacity-50' : ''}
                         `}
-                                onDragEnter={handleDrag}
-                                onDragLeave={handleDrag}
-                                onDragOver={handleDrag}
-                                onDrop={handleDrop}
-                            >
-                                <div className="text-center">
-                                    <div className="text-4xl mb-3">{icon}</div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">{label}</h3>
+                        onDragEnter={handleDrag}
+                        onDragLeave={handleDrag}
+                        onDragOver={handleDrag}
+                        onDrop={handleDrop}
+                    >
+                        <div className="text-center">
+                            <div className="text-4xl mb-3">{icon}</div>
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">{label}</h3>
 
-                                    {fileInfo?.loading ? (
-                                        <div className="text-blue-600">
-                                            <div className="animate-spin inline-block w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mb-2"></div>
-                                            <p className="text-sm">Extraindo texto...</p>
-                                        </div>
-                                    ) : fileInfo?.text ? (
-                                        <div className="text-green-600">
-                                            <div className="text-2xl mb-2">✓</div>
-                                            <p className="text-sm font-medium">{fileInfo.name}</p>
-                                            <p className="text-xs text-gray-600 mt-1">
-                                                {fileInfo.text.length.toLocaleString('pt-BR')} caracteres extraídos
-                                            </p>
-                                            <button
-                                                onClick={handleRemove}
-                                                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
-                                            >
-                                                🗑️ Remover documento
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <label className="cursor-pointer inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                                                Selecionar arquivo
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf,.docx"
-                                                    onChange={handleChange}
-                                                    className="hidden"
-                                                />
-                                            </label>
-                                            <p className="text-xs text-gray-500 mt-2">PDF ou DOCX (máx. 50MB)</p>
-                                        </>
-                                    )}
-
-                                    {fileInfo?.error && (
-                                        <p className="text-red-600 text-sm mt-2">{fileInfo.error}</p>
-                                    )}
+                            {fileInfo?.loading ? (
+                                <div className="text-blue-600">
+                                    <div className="animate-spin inline-block w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full mb-2"></div>
+                                    <p className="text-sm">Extraindo texto...</p>
                                 </div>
-                            </div>
+                            ) : fileInfo?.text ? (
+                                <div className="text-green-600">
+                                    <div className="text-2xl mb-2">✓</div>
+                                    <p className="text-sm font-medium">{fileInfo.name}</p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        {fileInfo.text.length.toLocaleString('pt-BR')} caracteres extraídos
+                                    </p>
+                                    <button
+                                        onClick={handleRemove}
+                                        className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+                                    >
+                                        🗑️ Remover documento
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <label className="cursor-pointer inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                        Selecionar arquivo
+                                        <input
+                                            type="file"
+                                            accept=".pdf,.docx"
+                                            onChange={handleChange}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                    <p className="text-xs text-gray-500 mt-2">PDF ou DOCX (máx. 50MB)</p>
+                                </>
+                            )}
+
+                            {fileInfo?.error && (
+                                <p className="text-red-600 text-sm mt-2">{fileInfo.error}</p>
+                            )}
                         </div>
-                    );
-                }
+                    </div>
+                </div>
+            );
+        }
 
-                function StepExecutor({
-                    currentStage,
-                    onExecute,
-                    canExecute,
-                    processing
-                }) {
-                    const stages = [
-                        { number: 1, label: 'Executar Etapa 1', description: 'Análise da Petição do Recurso' },
-                        { number: 2, label: 'Executar Etapa 2', description: 'Análise do Acórdão' },
-                        { number: 3, label: 'Executar Etapa 3', description: 'Geração da Minuta Final' }
-                    ];
+        function StepExecutor({
+            currentStage,
+            onExecute,
+            canExecute,
+            processing
+        }) {
+            const stages = [
+                { number: 1, label: 'Executar Etapa 1', description: 'Análise da Petição do Recurso' },
+                { number: 2, label: 'Executar Etapa 2', description: 'Análise do Acórdão' },
+                { number: 3, label: 'Executar Etapa 3', description: 'Geração da Minuta Final' }
+            ];
 
-                    return (
-                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                            <h3 className="text-lg font-bold text-gray-900 mb-4">Execução das Etapas</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {stages.map(stage => {
-                                    const isEnabled = canExecute[stage.number] && !processing;
-                                    const isCurrent = currentStage === stage.number;
+            return (
+                <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Execução das Etapas</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {stages.map(stage => {
+                            const isEnabled = canExecute[stage.number] && !processing;
+                            const isCurrent = currentStage === stage.number;
 
-                                    return (
-                                        <button
-                                            key={stage.number}
-                                            onClick={() => onExecute(stage.number)}
-                                            disabled={!isEnabled}
-                                            className={`
+                            return (
+                                <button
+                                    key={stage.number}
+                                    onClick={() => onExecute(stage.number)}
+                                    disabled={!isEnabled}
+                                    className={`
                                         px-6 py-4 rounded-lg font-medium transition text-left
                                         ${isEnabled
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                                                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'}
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'}
                                         ${isCurrent && processing ? 'animate-pulse' : ''}
                                     `}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xl">▶</span>
-                                                <div>
-                                                    <div className="font-bold">{stage.label}</div>
-                                                    <div className="text-xs opacity-90">{stage.description}</div>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                }
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl">▶</span>
+                                        <div>
+                                            <div className="font-bold">{stage.label}</div>
+                                            <div className="text-xs opacity-90">{stage.description}</div>
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        }
 
-                function ResultPanel({ stage, result, onCopy, onDownload }) {
-                    const [copied, setCopied] = useState(false);
+        function ResultPanel({ stage, result, onCopy, onDownload }) {
+            const [copied, setCopied] = useState(false);
 
-                    const handleCopy = () => {
-                        onCopy(result);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                    };
+            const handleCopy = () => {
+                onCopy(result);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            };
 
-                    if (!result) return null;
+            if (!result) return null;
 
-                    const titles = {
-                        1: 'Resultado Etapa 1 - Dados do Recurso',
-                        2: 'Resultado Etapa 2 - Análise do Acórdão',
-                        3: 'Resultado Etapa 3 - MINUTA FINAL'
-                    };
+            const titles = {
+                1: 'Resultado Etapa 1 - Dados do Recurso',
+                2: 'Resultado Etapa 2 - Análise do Acórdão',
+                3: 'Resultado Etapa 3 - MINUTA FINAL'
+            };
 
-                    const icons = {
-                        1: '📋',
-                        2: '📋',
-                        3: '✅'
-                    };
+            const icons = {
+                1: '📋',
+                2: '📋',
+                3: '✅'
+            };
 
-                    return (
-                        <div className={`
+            return (
+                <div className={`
                     rounded-lg shadow-md p-6 mb-6
                     ${stage === 3 ? 'bg-green-50 border-2 border-green-600' : 'bg-white'}
                 `}>
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className={`text-lg font-bold ${stage === 3 ? 'text-green-900' : 'text-gray-900'}`}>
-                                    {icons[stage]} {titles[stage]}
-                                </h3>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={handleCopy}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                                    >
-                                        {copied ? '✓ Copiado!' : '📋 Copiar'}
-                                    </button>
-                                    <button
-                                        onClick={() => onDownload(result, `etapa_${stage}.txt`)}
-                                        className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
-                                    >
-                                        💾 Baixar
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-auto max-h-96">
-                                <pre className="result-content">{result}</pre>
-                            </div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className={`text-lg font-bold ${stage === 3 ? 'text-green-900' : 'text-gray-900'}`}>
+                            {icons[stage]} {titles[stage]}
+                        </h3>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleCopy}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            >
+                                {copied ? '✓ Copiado!' : '📋 Copiar'}
+                            </button>
+                            <button
+                                onClick={() => onDownload(result, `etapa_${stage}.txt`)}
+                                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm font-medium"
+                            >
+                                💾 Baixar
+                            </button>
                         </div>
-                    );
+                    </div>
+                    <div className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-auto max-h-96">
+                        <pre className="result-content">{result}</pre>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const [currentStage, setCurrentStage] = useState(1);
+            const [files, setFiles] = useState({
+                recurso: null,
+                acordao: null
+            });
+            const [results, setResults] = useState({
+                etapa1: null,
+                etapa2: null,
+                etapa3: null
+            });
+            const [processing, setProcessing] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleFileSelect = async (file, tipo) => {
+                // Validate file size
+                if (file.size > 50 * 1024 * 1024) {
+                    setFiles(prev => ({
+                        ...prev,
+                        [tipo]: { error: 'Arquivo muito grande. Máximo 50MB.' }
+                    }));
+                    return;
                 }
 
-                function App() {
-                    const [currentStage, setCurrentStage] = useState(1);
-                    const [files, setFiles] = useState({
-                        recurso: null,
-                        acordao: null
-                    });
-                    const [results, setResults] = useState({
-                        etapa1: null,
-                        etapa2: null,
-                        etapa3: null
-                    });
-                    const [processing, setProcessing] = useState(false);
-                    const [error, setError] = useState(null);
-
-                    const handleFileSelect = async (file, tipo) => {
-                        // Validate file size
-                        if (file.size > 50 * 1024 * 1024) {
-                            setFiles(prev => ({
-                                ...prev,
-                                [tipo]: { error: 'Arquivo muito grande. Máximo 50MB.' }
-                            }));
-                            return;
-                        }
-
-                        // Validate file type
-                        const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-                        if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|docx)$/i)) {
-                            setFiles(prev => ({
-                                ...prev,
-                                [tipo]: { error: 'Formato não suportado. Use PDF ou DOCX.' }
-                            }));
-                            return;
-                        }
-
-                        // Set loading state
-                        setFiles(prev => ({
-                            ...prev,
-                            [tipo]: { loading: true, name: file.name }
-                        }));
-
-                        try {
-                            let text;
-                            if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-                                text = await extractTextFromPDF(file);
-                            } else {
-                                text = await extractTextFromDOCX(file);
-                            }
-
-                            if (!text || text.trim().length === 0) {
-                                throw new Error('O arquivo está vazio ou não foi possível extrair texto.');
-                            }
-
-                            setFiles(prev => ({
-                                ...prev,
-                                [tipo]: { text, name: file.name, loading: false }
-                            }));
-                            setError(null);
-                        } catch (err) {
-                            setFiles(prev => ({
-                                ...prev,
-                                [tipo]: { error: err.message, name: file.name, loading: false }
-                            }));
-                        }
-                    };
-
-                    const handleRemoveFile = (tipo) => {
-                        setFiles(prev => ({
-                            ...prev,
-                            [tipo]: null
-                        }));
-                        setError(null);
-                    };
-
-                    const executeStage = async (stage) => {
-                        setProcessing(true);
-                        setError(null);
-
-                        try {
-                            let prompt, result;
-
-                            switch (stage) {
-                                case 1:
-                                    prompt = PROMPTS.etapa1(files.recurso.text);
-                                    result = await callBackendAPI(prompt);
-                                    setResults(prev => ({ ...prev, etapa1: result }));
-                                    setCurrentStage(2);
-                                    break;
-
-                                case 2:
-                                    prompt = PROMPTS.etapa2(files.acordao.text, results.etapa1);
-                                    result = await callBackendAPI(prompt);
-                                    setResults(prev => ({ ...prev, etapa2: result }));
-                                    setCurrentStage(3);
-                                    break;
-
-                                case 3:
-                                    prompt = PROMPTS.etapa3(results.etapa1, results.etapa2);
-                                    result = await callBackendAPI(prompt);
-                                    setResults(prev => ({ ...prev, etapa3: result }));
-                                    break;
-                            }
-                        } catch (err) {
-                            setError(`Erro ao processar: ${err.message}`);
-                        } finally {
-                            setProcessing(false);
-                        }
-                    };
-
-                    const canExecute = {
-                        1: files.recurso?.text && !files.recurso?.loading,
-                        2: results.etapa1 && files.acordao?.text && !files.acordao?.loading,
-                        3: results.etapa1 && results.etapa2
-                    };
-
-                    const handleCopy = (text) => {
-                        navigator.clipboard.writeText(text);
-                    };
-
-                    const handleDownload = (text, filename) => {
-                        downloadAsText(text, filename);
-                    };
-
-                    return (
-                        <div className="min-h-screen bg-gray-50 py-8">
-                            <div className="max-w-7xl mx-auto px-4">
-                                {/* Header */}
-                                <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-8 mb-8 text-white">
-                                    <h1 className="text-3xl font-bold mb-2">Sistema de Análise de Recursos - TJPR</h1>
-                                    <p className="text-blue-100">
-                                        Processamento automatizado de Recurso Especial e Recurso Extraordinário
-                                    </p>
-                                </div>
-
-                                {/* Privacy Disclaimer */}
-                                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
-                                    <p className="text-sm text-blue-900">
-                                        🔒 <strong>Privacidade:</strong> Os documentos são processados localmente no seu navegador
-                                        e enviados para processamento via backend seguro. Nenhum dado é armazenado permanentemente.
-                                    </p>
-                                </div>
-
-                                {/* Progress Bar */}
-                                <ProgressBar currentStage={currentStage} />
-
-                                {/* File Uploaders */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                    <FileUploader
-                                        label="Petição do Recurso"
-                                        icon="📄"
-                                        tipo="recurso"
-                                        onFileSelect={handleFileSelect}
-                                        fileInfo={files.recurso}
-                                        onRemove={handleRemoveFile}
-                                    />
-                                    <FileUploader
-                                        label="Acórdão/Decisão"
-                                        icon="⚖️"
-                                        tipo="acordao"
-                                        onFileSelect={handleFileSelect}
-                                        fileInfo={files.acordao}
-                                        onRemove={handleRemoveFile}
-                                    />
-                                </div>
-
-                                {/* Step Executor */}
-                                <StepExecutor
-                                    currentStage={currentStage}
-                                    onExecute={executeStage}
-                                    canExecute={canExecute}
-                                    processing={processing}
-                                />
-
-                                {/* Error Display */}
-                                {error && (
-                                    <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
-                                        <p className="text-red-900">❌ {error}</p>
-                                    </div>
-                                )}
-
-                                {/* Processing Indicator */}
-                                {processing && (
-                                    <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
-                                        <p className="text-blue-900 flex items-center gap-2">
-                                            <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></span>
-                                            Processando... Aguarde enquanto a IA analisa o documento.
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Results */}
-                                {results.etapa1 && (
-                                    <ResultPanel
-                                        stage={1}
-                                        result={results.etapa1}
-                                        onCopy={handleCopy}
-                                        onDownload={handleDownload}
-                                    />
-                                )}
-
-                                {results.etapa2 && (
-                                    <ResultPanel
-                                        stage={2}
-                                        result={results.etapa2}
-                                        onCopy={handleCopy}
-                                        onDownload={handleDownload}
-                                    />
-                                )}
-
-                                {results.etapa3 && (
-                                    <ResultPanel
-                                        stage={3}
-                                        result={results.etapa3}
-                                        onCopy={handleCopy}
-                                        onDownload={handleDownload}
-                                    />
-                                )}
-
-                                {/* Footer */}
-                                <div className="text-center text-gray-500 text-sm mt-12">
-                                    <p>Sistema desenvolvido para análise de recursos jurídicos do TJPR</p>
-                                    <p className="mt-1">Powered by Google Gemini AI</p>
-                                </div>
-                            </div>
-                        </div>
-                    );
+                // Validate file type
+                const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+                if (!validTypes.includes(file.type) && !file.name.match(/\.(pdf|docx)$/i)) {
+                    setFiles(prev => ({
+                        ...prev,
+                        [tipo]: { error: 'Formato não suportado. Use PDF ou DOCX.' }
+                    }));
+                    return;
                 }
 
-                // Render
-                ReactDOM.render(<App />, document.getElementById('root'));
+                // Set loading state
+                setFiles(prev => ({
+                    ...prev,
+                    [tipo]: { loading: true, name: file.name }
+                }));
+
+                try {
+                    let text;
+                    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+                        text = await extractTextFromPDF(file);
+                    } else {
+                        text = await extractTextFromDOCX(file);
+                    }
+
+                    if (!text || text.trim().length === 0) {
+                        throw new Error('O arquivo está vazio ou não foi possível extrair texto.');
+                    }
+
+                    setFiles(prev => ({
+                        ...prev,
+                        [tipo]: { text, name: file.name, loading: false }
+                    }));
+                    setError(null);
+                } catch (err) {
+                    setFiles(prev => ({
+                        ...prev,
+                        [tipo]: { error: err.message, name: file.name, loading: false }
+                    }));
+                }
+            };
+
+            const handleRemoveFile = (tipo) => {
+                setFiles(prev => ({
+                    ...prev,
+                    [tipo]: null
+                }));
+                setError(null);
+            };
+
+            const executeStage = async (stage) => {
+                setProcessing(true);
+                setError(null);
+
+                try {
+                    let prompt, result;
+
+                    switch (stage) {
+                        case 1:
+                            prompt = PROMPTS.etapa1(files.recurso.text);
+                            result = await callBackendAPI(prompt);
+                            setResults(prev => ({ ...prev, etapa1: result }));
+                            setCurrentStage(2);
+                            break;
+
+                        case 2:
+                            prompt = PROMPTS.etapa2(files.acordao.text, results.etapa1);
+                            result = await callBackendAPI(prompt);
+                            setResults(prev => ({ ...prev, etapa2: result }));
+                            setCurrentStage(3);
+                            break;
+
+                        case 3:
+                            prompt = PROMPTS.etapa3(results.etapa1, results.etapa2);
+                            result = await callBackendAPI(prompt);
+                            setResults(prev => ({ ...prev, etapa3: result }));
+                            break;
+                    }
+                } catch (err) {
+                    setError(`Erro ao processar: ${err.message}`);
+                } finally {
+                    setProcessing(false);
+                }
+            };
+
+            const canExecute = {
+                1: files.recurso?.text && !files.recurso?.loading,
+                2: results.etapa1 && files.acordao?.text && !files.acordao?.loading,
+                3: results.etapa1 && results.etapa2
+            };
+
+            const handleCopy = (text) => {
+                navigator.clipboard.writeText(text);
+            };
+
+            const handleDownload = (text, filename) => {
+                downloadAsText(text, filename);
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 py-8">
+                    <div className="max-w-7xl mx-auto px-4">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-8 mb-8 text-white">
+                            <h1 className="text-3xl font-bold mb-2">Sistema de Análise de Recursos - TJPR</h1>
+                            <p className="text-blue-100">
+                                Processamento automatizado de Recurso Especial e Recurso Extraordinário
+                            </p>
+                        </div>
+
+                        {/* Privacy Disclaimer */}
+                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+                            <p className="text-sm text-blue-900">
+                                🔒 <strong>Privacidade:</strong> Os documentos são processados localmente no seu navegador
+                                e enviados para processamento via backend seguro. Nenhum dado é armazenado permanentemente.
+                            </p>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <ProgressBar currentStage={currentStage} />
+
+                        {/* File Uploaders */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <FileUploader
+                                label="Petição do Recurso"
+                                icon="📄"
+                                tipo="recurso"
+                                onFileSelect={handleFileSelect}
+                                fileInfo={files.recurso}
+                                onRemove={handleRemoveFile}
+                            />
+                            <FileUploader
+                                label="Acórdão/Decisão"
+                                icon="⚖️"
+                                tipo="acordao"
+                                onFileSelect={handleFileSelect}
+                                fileInfo={files.acordao}
+                                onRemove={handleRemoveFile}
+                            />
+                        </div>
+
+                        {/* Step Executor */}
+                        <StepExecutor
+                            currentStage={currentStage}
+                            onExecute={executeStage}
+                            canExecute={canExecute}
+                            processing={processing}
+                        />
+
+                        {/* Error Display */}
+                        {error && (
+                            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+                                <p className="text-red-900">❌ {error}</p>
+                            </div>
+                        )}
+
+                        {/* Processing Indicator */}
+                        {processing && (
+                            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+                                <p className="text-blue-900 flex items-center gap-2">
+                                    <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></span>
+                                    Processando... Aguarde enquanto a IA analisa o documento.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Results */}
+                        {results.etapa1 && (
+                            <ResultPanel
+                                stage={1}
+                                result={results.etapa1}
+                                onCopy={handleCopy}
+                                onDownload={handleDownload}
+                            />
+                        )}
+
+                        {results.etapa2 && (
+                            <ResultPanel
+                                stage={2}
+                                result={results.etapa2}
+                                onCopy={handleCopy}
+                                onDownload={handleDownload}
+                            />
+                        )}
+
+                        {results.etapa3 && (
+                            <ResultPanel
+                                stage={3}
+                                result={results.etapa3}
+                                onCopy={handleCopy}
+                                onDownload={handleDownload}
+                            />
+                        )}
+
+                        {/* Footer */}
+                        <div className="text-center text-gray-500 text-sm mt-12">
+                            <p>Sistema desenvolvido para análise de recursos jurídicos do TJPR</p>
+                            <p className="mt-1">Powered by Google Gemini AI</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render
+        ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 
