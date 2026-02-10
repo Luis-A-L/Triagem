@@ -1,0 +1,15 @@
+# Backend
+backend/.env
+backend/node_modules/
+backend/package-lock.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
