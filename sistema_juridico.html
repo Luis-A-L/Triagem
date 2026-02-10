@@ -64,8 +64,9 @@
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // Backend API Configuration
-        const BACKEND_API_URL = 'http://localhost:3000/api/gemini';
+        // Backend API Configuration - Appwrite Function
+        const BACKEND_API_URL = 'https://cloud.appwrite.io/v1/functions/function-698b6e03002d7a17a88e/executions';
+        const APPWRITE_PROJECT_ID = 'nyc-698b6ce9002d1d428be6';
 
         // Prompts for each stage
         const PROMPTS = {
@@ -220,6 +221,7 @@ ${resultadoEtapa2}`
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Appwrite-Project': APPWRITE_PROJECT_ID
                 },
                 body: JSON.stringify({ prompt })
             });
@@ -230,7 +232,9 @@ ${resultadoEtapa2}`
             }
 
             const data = await response.json();
-            return data.result;
+            // Appwrite returns response in responseBody
+            const result = typeof data.responseBody === 'string' ? JSON.parse(data.responseBody) : data.responseBody;
+            return result.result;
         }
 
         // Download function
