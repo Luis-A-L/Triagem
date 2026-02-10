@@ -22,6 +22,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Appwrite SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.0"></script>
+
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -60,13 +63,19 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
+        const { Client, Functions } = Appwrite;
 
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // Backend API Configuration - Appwrite Function
-        const BACKEND_API_URL = 'https://cloud.appwrite.io/v1/functions/function-698b6e03002d7a17a88e/executions';
-        const APPWRITE_PROJECT_ID = '698b6ce9002d1d428be6';
+        // Appwrite Configuration
+        const client = new Client();
+        client
+            .setEndpoint('https://cloud.appwrite.io/v1')
+            .setProject('698b6ce9002d1d428be6');
+
+        const functions = new Functions(client);
+        const FUNCTION_ID = 'function-698b6e03002d7a17a88e';
 
 
 
@@ -217,29 +226,25 @@ ${resultadoEtapa2}`
             return result.value;
         }
 
-        // Backend API call
+        // Backend API call using Appwrite SDK
         async function callBackendAPI(prompt) {
-            const response = await fetch(BACKEND_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Appwrite-Project': APPWRITE_PROJECT_ID
-                },
-                body: JSON.stringify({
-                    body: JSON.stringify({ prompt: prompt }),
-                    async: false
-                })
-            });
+            try {
+                const execution = await functions.createExecution(
+                    FUNCTION_ID,
+                    JSON.stringify({ prompt: prompt }),
+                    false // async: false (wait for response)
+                );
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Erro ao processar requisição');
+                if (execution.status !== 'completed') {
+                    throw new Error(execution.responseBody || 'Erro na execução da função');
+                }
+
+                const data = JSON.parse(execution.responseBody);
+                return data.result;
+            } catch (error) {
+                console.error('Appwrite Error:', error);
+                throw new Error(error.message || 'Erro ao conectar com o backend');
             }
-
-            const data = await response.json();
-            // Appwrite returns response in responseBody
-            const result = typeof data.responseBody === 'string' ? JSON.parse(data.responseBody) : data.responseBody;
-            return result.result;
         }
 
         // Download function
