@@ -1,0 +1,10 @@
+{
+    "name": "gemini-proxy",
+    "version": "1.0.0",
+    "description": "Proxy para API Gemini - Sistema de Análise Jurídica TJPR",
+    "main": "index.js",
+    "dependencies": {},
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
