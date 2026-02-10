@@ -22,9 +22,16 @@ app.post('/api/gemini', async (req, res) => {
             return res.status(400).json({ error: 'Prompt is required' });
         }
 
-        if (!OPENAI_API_KEY) {
-            console.error('OPENAI_API_KEY not found in .env');
-            return res.status(500).json({ error: 'API key not configured on server' });
+        // DEBUG: Log environment status (don't log the full key for security)
+        console.log('DEBUG: Checking Environment Variables...');
+        console.log('DEBUG: OPENAI_API_KEY type:', typeof process.env.OPENAI_API_KEY);
+        console.log('DEBUG: OPENAI_API_KEY length:', process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0);
+
+        if (!process.env.OPENAI_API_KEY) {
+            console.error('CRITICAL: OPENAI_API_KEY is missing from process.env');
+            // Log all available keys to see what IS there
+            console.log('DEBUG: Available Keys:', Object.keys(process.env));
+            return res.status(500).json({ error: 'API key not configured on server (Check Render Logs)' });
         }
 
         console.log('Calling OpenAI API...');
