@@ -245,8 +245,10 @@ ${resultadoEtapa2}`
                     false // async: false (wait for response)
                 );
 
+                console.log("🔍 DEBUG Appwrite Execution:", execution); // LOG PARA DEBUG
+
                 if (execution.status !== 'completed') {
-                    throw new Error(execution.responseBody || 'Erro na execução da função');
+                    throw new Error(`Status: ${execution.status} | Erro: ${execution.responseBody || 'Sem detalhes'}`);
                 }
 
                 const data = JSON.parse(execution.responseBody);
