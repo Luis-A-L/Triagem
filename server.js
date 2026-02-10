@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 // Gemini API endpoint
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Health check
@@ -47,7 +47,7 @@ app.post('/api/gemini', async (req, res) => {
                     temperature: 0.2,
                     topK: 40,
                     topP: 0.95,
-                    maxOutputTokens: 8192,
+                    maxOutputTokens: 65536,
                 }
             })
         });
