@@ -225,7 +225,10 @@ ${resultadoEtapa2}`
                     'Content-Type': 'application/json',
                     'X-Appwrite-Project': APPWRITE_PROJECT_ID
                 },
-                body: JSON.stringify({ prompt })
+                body: JSON.stringify({
+                    body: JSON.stringify({ prompt: prompt }),
+                    async: false
+                })
             });
 
             if (!response.ok) {
